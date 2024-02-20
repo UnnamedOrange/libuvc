@@ -42,7 +42,7 @@
 uvc_error_t uvc_ensure_frame_size(uvc_frame_t *frame, size_t need_bytes) {
   if (frame->library_owns_data) {
     if (!frame->data || frame->data_bytes != need_bytes) {
-      frame->data_bytes = need_bytes;
+      frame->actual_bytes = frame->data_bytes = need_bytes; // XXX
       frame->data = realloc(frame->data, frame->data_bytes);
     }
     if (!frame->data)
@@ -69,10 +69,11 @@ uvc_frame_t *uvc_allocate_frame(size_t data_bytes) {
 
   memset(frame, 0, sizeof(*frame));
 
-  frame->library_owns_data = 1;
+  // frame->library_owns_data = 1; // XXX moved to lower
 
   if (data_bytes > 0) {
-    frame->data_bytes = data_bytes;
+    frame->library_owns_data = 1; // XXX
+    frame->actual_bytes = frame->data_bytes = data_bytes; // XXX
     frame->data = malloc(data_bytes);
 
     if (!frame->data) {
@@ -123,8 +124,9 @@ uvc_error_t uvc_duplicate_frame(uvc_frame_t *in, uvc_frame_t *out) {
   out->capture_time = in->capture_time;
   out->capture_time_finished = in->capture_time_finished;
   out->source = in->source;
+  out->actual_bytes = in->actual_bytes; // XXX
 
-  memcpy(out->data, in->data, in->data_bytes);
+  memcpy(out->data, in->data, in->actual_bytes); // XXX
 
   if (in->metadata && in->metadata_bytes > 0)
   {

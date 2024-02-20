@@ -14,6 +14,11 @@
 #include <libusb.h>
 #include "utlist.h"
 
+/** Converts an unaligned 8-byte little-endian integer into an int64 */
+#define QW_TO_LONG(p) \
+ ((p)[0] | ((p)[1] << 8) | ((p)[2] << 16) | ((p)[3] << 24) \
+  | ((uint64_t)(p)[4] << 32) | ((uint64_t)(p)[5] << 40) \
+  | ((uint64_t)(p)[6] << 48) | ((uint64_t)(p)[7] << 56))
 /** Converts an unaligned four-byte little-endian integer into an int32 */
 #define DW_TO_INT(p) ((p)[0] | ((p)[1] << 8) | ((p)[2] << 16) | ((p)[3] << 24))
 /** Converts an unaligned two-byte little-endian integer into an int16 */
@@ -28,6 +33,16 @@
   (p)[1] = (i) >> 8; \
   (p)[2] = (i) >> 16; \
   (p)[3] = (i) >> 24;
+/** Converts an int64 into an unaligned 8-byte little-endian integer */
+#define LONG_TO_QW(i, p) \
+  (p)[0] = (i); \
+  (p)[1] = (i) >> 8; \
+  (p)[2] = (i) >> 16; \
+  (p)[3] = (i) >> 24; \
+  (p)[4] = (i) >> 32; \
+  (p)[5] = (i) >> 40; \
+  (p)[6] = (i) >> 48; \
+  (p)[7] = (i) >> 56;
 
 /** Selects the nth item in a doubly linked list. n=-1 selects the last item. */
 #define DL_NTH(head, out, n) \
@@ -181,6 +196,10 @@ typedef struct uvc_streaming_interface {
   uint8_t bEndpointAddress;
   uint8_t bTerminalLink;
   uint8_t bStillCaptureMethod;
+  uint8_t bmInfo; // XXX
+  uint8_t bTriggerSupport; // XXX
+  uint8_t bTriggerUsage; // XXX
+  uint64_t *bmaControls; // XXX
 } uvc_streaming_interface_t;
 
 /** VideoControl interface */
@@ -245,11 +264,13 @@ struct uvc_stream_handle {
 
   /* listeners may only access hold*, and only when holding a
    * lock on cb_mutex (probably signaled with cb_cond) */
+  uint8_t bfh_err, hold_bfh_err; // XXX added to keep UVC_STREAM_ERR
   uint8_t fid;
   uint32_t seq, hold_seq;
   uint32_t pts, hold_pts;
   uint32_t last_scr, hold_last_scr;
   size_t got_bytes, hold_bytes;
+  size_t size_buf; // XXX add for boundary check
   uint8_t *outbuf, *holdbuf;
   pthread_mutex_t cb_mutex;
   pthread_cond_t cb_cond;
@@ -290,6 +311,7 @@ struct uvc_device_handle {
   uvc_stream_handle_t *streams;
   /** Whether the camera is an iSight that sends one header per frame */
   uint8_t is_isight;
+  uint8_t reset_on_release_if; // XXX whether interface alt setting needs to reset to 0.
   uint32_t claimed;
 };
 

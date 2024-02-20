@@ -53,6 +53,37 @@ typedef enum uvc_error {
   UVC_ERROR_OTHER = -99
 } uvc_error_t;
 
+/**
+ * Table 4-7 VC Request Error Code Control XXX add saki@serenegiant.com
+ */
+typedef enum uvc_vc_error_code_control {
+  UVC_ERROR_CODECTRL_NO_ERROR = 0x00,
+  UVC_ERROR_CODECTRL_NOT_READY = 0x01,
+  UVC_ERROR_CODECTRL_WRONG_STATE = 0x02,
+  UVC_ERROR_CODECTRL_POWER = 0x03,
+  UVC_ERROR_CODECTRL_OUT_OF_RANGE = 0x04,
+  UVC_ERROR_CODECTRL_INVALID_UINT = 0x05,
+  UVC_ERROR_CODECTRL_INVALID_CONTROL = 0x06,
+  UVC_ERROR_CODECTRL_INVALID_REQUEST = 0x07,
+  UVC_ERROR_CODECTRL_INVALID_VALUE = 0x08,
+  UVC_ERROR_CODECTRL_UNKNOWN = 0xff
+} uvc_vc_error_code_control_t;
+
+/**
+ * VS Request Error Code Control XXX add saki@serenegiant.com
+ */
+typedef enum uvc_vs_error_code_control {
+  UVC_VS_ERROR_CODECTRL_NO_ERROR = 0,
+  UVC_VS_ERROR_CODECTRL_PROTECTED = 1,
+  UVC_VS_ERROR_CODECTRL_IN_BUFEER_UNDERRUN = 2,
+  UVC_VS_ERROR_CODECTRL_DATA_DISCONTINUITY = 3,
+  UVC_VS_ERROR_CODECTRL_OUT_BUFEER_UNDERRUN = 4,
+  UVC_VS_ERROR_CODECTRL_OUT_BUFEER_OVERRUN = 5,
+  UVC_VS_ERROR_CODECTRL_FORMAT_CHANGE = 6,
+  UVC_VS_ERROR_CODECTRL_STILL_CAPTURE_ERROR = 7,
+  UVC_VS_ERROR_CODECTRL_UNKNOWN = 8,
+} uvc_vs_error_code_control_t;
+
 /** Color coding of stream, transport-independent
  * @ingroup streaming
  */
@@ -67,9 +98,13 @@ enum uvc_frame_format {
    */
   UVC_FRAME_FORMAT_YUYV,
   UVC_FRAME_FORMAT_UYVY,
+  /** 16-bits RGB */
+  UVC_FRAME_FORMAT_RGB565, // XXX RGB565
   /** 24-bit RGB */
   UVC_FRAME_FORMAT_RGB,
   UVC_FRAME_FORMAT_BGR,
+  /** 32-bits RGB */
+  UVC_FRAME_FORMAT_RGBX, // XXX RGBX8888
   /** Motion-JPEG (or JPEG) encoded images */
   UVC_FRAME_FORMAT_MJPEG,
   UVC_FRAME_FORMAT_H264,
@@ -100,6 +135,8 @@ enum uvc_frame_format {
 #define UVC_COLOR_FORMAT_UYVY UVC_FRAME_FORMAT_UYVY
 #define UVC_COLOR_FORMAT_RGB UVC_FRAME_FORMAT_RGB
 #define UVC_COLOR_FORMAT_BGR UVC_FRAME_FORMAT_BGR
+#define UVC_COLOR_FORMAT_RGB565 UVC_FRAME_FORMAT_RGB565 // XXX
+#define UVC_COLOR_FORMAT_RGBX UVC_FRAME_FORMAT_RGBX // XXX
 #define UVC_COLOR_FORMAT_MJPEG UVC_FRAME_FORMAT_MJPEG
 #define UVC_COLOR_FORMAT_GRAY8 UVC_FRAME_FORMAT_GRAY8
 #define UVC_COLOR_FORMAT_GRAY16 UVC_FRAME_FORMAT_GRAY16
@@ -289,7 +326,7 @@ enum uvc_pu_ctrl_selector {
   UVC_PU_HUE_AUTO_CONTROL = 0x10,
   UVC_PU_ANALOG_VIDEO_STANDARD_CONTROL = 0x11,
   UVC_PU_ANALOG_LOCK_STATUS_CONTROL = 0x12,
-  UVC_PU_CONTRAST_AUTO_CONTROL = 0x13
+  UVC_PU_CONTRAST_AUTO_CONTROL = 0x13, // XXX
 };
 
 /** USB terminal type (B.1) */
@@ -457,6 +494,9 @@ typedef struct uvc_frame {
   void *data;
   /** Size of image data buffer */
   size_t data_bytes;
+  /** XXX Size of actual received data to confirm whether the received bytes is same
+   * as expected on user function when some microframes dropped */
+  size_t actual_bytes;
   /** Width of image in pixels */
   uint32_t width;
   /** Height of image in pixels */
@@ -512,6 +552,13 @@ typedef struct uvc_stream_ctrl {
   uint8_t bPreferredVersion;
   uint8_t bMinVersion;
   uint8_t bMaxVersion;
+  /** XXX add UVC 1.5 parameters */
+  uint8_t bUsage;
+  uint8_t bBitDepthLuma;
+  uint8_t bmSettings;
+  uint8_t bMaxNumberOfRefFramesPlus1;
+  uint16_t bmRateControlModes;
+  uint64_t bmLayoutPerStream;
   uint8_t bInterfaceNumber;
 } uvc_stream_ctrl_t;
 
@@ -596,6 +643,12 @@ uvc_error_t uvc_get_stream_ctrl_format_size(
     int width, int height,
     int fps
     );
+uvc_error_t uvc_get_stream_ctrl_format_size_fps(
+    uvc_device_handle_t *devh,
+    uvc_stream_ctrl_t *ctrl,
+    enum uvc_frame_format cf,
+    int width, int height,
+    int min_fps, int max_fps); // XXX
 
 uvc_error_t uvc_get_still_ctrl_format_size(
     uvc_device_handle_t *devh,
@@ -652,6 +705,11 @@ void uvc_stream_close(uvc_stream_handle_t *strmh);
 int uvc_get_ctrl_len(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl);
 int uvc_get_ctrl(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl, void *data, int len, enum uvc_req_code req_code);
 int uvc_set_ctrl(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl, void *data, int len);
+
+uvc_error_t uvc_vc_get_error_code(uvc_device_handle_t *devh,
+    uvc_vc_error_code_control_t *error_code, enum uvc_req_code req_code); // XXX
+uvc_error_t uvc_vs_get_error_code(uvc_device_handle_t *devh,
+    uvc_vs_error_code_control_t *error_code, enum uvc_req_code req_code); // XXX
 
 uvc_error_t uvc_get_power_mode(uvc_device_handle_t *devh, enum uvc_device_power_mode *mode, enum uvc_req_code req_code);
 uvc_error_t uvc_set_power_mode(uvc_device_handle_t *devh, enum uvc_device_power_mode mode);
@@ -803,6 +861,8 @@ uvc_error_t uvc_yuyv2uv(uvc_frame_t *in, uvc_frame_t *out);
 uvc_error_t uvc_mjpeg2rgb(uvc_frame_t *in, uvc_frame_t *out);
 uvc_error_t uvc_mjpeg2gray(uvc_frame_t *in, uvc_frame_t *out);
 #endif
+
+uvc_error_t uvc_ensure_frame_size(uvc_frame_t *frame, size_t need_bytes); // XXX
 
 #ifdef __cplusplus
 }

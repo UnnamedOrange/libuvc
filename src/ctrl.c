@@ -48,7 +48,7 @@ static const int REQ_TYPE_GET = 0xa1;
 /***** GENERIC CONTROLS *****/
 /**
  * @brief Get the length of a control on a terminal or unit.
- * 
+ *
  * @param devh UVC device handle
  * @param unit Unit or Terminal ID; obtain this from the uvc_extension_unit_t describing the extension unit
  * @param ctrl Vendor-specific control number to query
@@ -63,7 +63,7 @@ int uvc_get_ctrl_len(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl) {
     devh->usb_devh,
     REQ_TYPE_GET, UVC_GET_LEN,
     ctrl << 8,
-    unit << 8 | devh->info->ctrl_if.bInterfaceNumber,		// XXX saki
+    unit << 8 | devh->info->ctrl_if.bInterfaceNumber, // XXX
     buf,
     2,
     0 /* timeout */);
@@ -76,7 +76,7 @@ int uvc_get_ctrl_len(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl) {
 
 /**
  * @brief Perform a GET_* request from an extension unit.
- * 
+ *
  * @param devh UVC device handle
  * @param unit Unit ID; obtain this from the uvc_extension_unit_t describing the extension unit
  * @param ctrl Control number to query
@@ -92,7 +92,7 @@ int uvc_get_ctrl(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl, void *da
     devh->usb_devh,
     REQ_TYPE_GET, req_code,
     ctrl << 8,
-    unit << 8 | devh->info->ctrl_if.bInterfaceNumber,		// XXX saki
+    unit << 8 | devh->info->ctrl_if.bInterfaceNumber, // XXX
     data,
     len,
     0 /* timeout */);
@@ -100,7 +100,7 @@ int uvc_get_ctrl(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl, void *da
 
 /**
  * @brief Perform a SET_CUR request to a terminal or unit.
- * 
+ *
  * @param devh UVC device handle
  * @param unit Unit or Terminal ID
  * @param ctrl Control number to set
@@ -115,13 +115,55 @@ int uvc_set_ctrl(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl, void *da
     devh->usb_devh,
     REQ_TYPE_SET, UVC_SET_CUR,
     ctrl << 8,
-    unit << 8 | devh->info->ctrl_if.bInterfaceNumber,		// XXX saki
+    unit << 8 | devh->info->ctrl_if.bInterfaceNumber, // XXX
     data,
     len,
     0 /* timeout */);
 }
 
 /***** INTERFACE CONTROLS *****/
+/** VC Request Error Code Control (UVC 4.2.1.2) */ // XXX
+uvc_error_t uvc_vc_get_error_code(uvc_device_handle_t *devh,
+    uvc_vc_error_code_control_t *error_code, enum uvc_req_code req_code) {
+  uint8_t error_char = 0;
+  uvc_error_t ret = UVC_SUCCESS;
+
+  ret = libusb_control_transfer(devh->usb_devh, REQ_TYPE_GET, req_code,
+      UVC_VC_REQUEST_ERROR_CODE_CONTROL << 8,
+      devh->info->ctrl_if.bInterfaceNumber, // XXX
+      &error_char, sizeof(error_char), 0);
+
+  if (ret == 1) {
+    *error_code = error_char;
+    return UVC_SUCCESS;
+  } else {
+    return ret;
+  }
+}
+
+/** VS Request Error Code Control */ // XXX
+uvc_error_t uvc_vs_get_error_code(uvc_device_handle_t *devh,
+    uvc_vs_error_code_control_t *error_code, enum uvc_req_code req_code) {
+  uint8_t error_char = 0;
+  uvc_error_t ret = UVC_SUCCESS;
+
+#if 0 // This code may cause hang-up on some combinations of device and camera and temporary disabled.
+  ret = libusb_control_transfer(devh->usb_devh, REQ_TYPE_GET, req_code,
+      UVC_VS_STREAM_ERROR_CODE_CONTROL << 8,
+      devh->info->stream_ifs->bInterfaceNumber, // XXX is this OK?
+      &error_char, sizeof(error_char), 0);
+
+  if (ret == 1) {
+    *error_code = error_char;
+    return UVC_SUCCESS;
+  } else {
+    return ret;
+  }
+#else
+  return ret;
+#endif
+}
+
 uvc_error_t uvc_get_power_mode(uvc_device_handle_t *devh, enum uvc_device_power_mode *mode, enum uvc_req_code req_code) {
   uint8_t mode_char;
   uvc_error_t ret;
@@ -130,7 +172,7 @@ uvc_error_t uvc_get_power_mode(uvc_device_handle_t *devh, enum uvc_device_power_
     devh->usb_devh,
     REQ_TYPE_GET, req_code,
     UVC_VC_VIDEO_POWER_MODE_CONTROL << 8,
-    devh->info->ctrl_if.bInterfaceNumber,	// XXX saki
+    devh->info->ctrl_if.bInterfaceNumber, // XXX
     &mode_char,
     sizeof(mode_char),
     0);
@@ -151,7 +193,7 @@ uvc_error_t uvc_set_power_mode(uvc_device_handle_t *devh, enum uvc_device_power_
     devh->usb_devh,
     REQ_TYPE_SET, UVC_SET_CUR,
     UVC_VC_VIDEO_POWER_MODE_CONTROL << 8,
-    devh->info->ctrl_if.bInterfaceNumber,	// XXX saki
+    devh->info->ctrl_if.bInterfaceNumber, // XXX
     &mode_char,
     sizeof(mode_char),
     0);
@@ -161,5 +203,3 @@ uvc_error_t uvc_set_power_mode(uvc_device_handle_t *devh, enum uvc_device_power_
   else
     return ret;
 }
-
-/** @todo Request Error Code Control (UVC 1.5, 4.2.1.2) */
