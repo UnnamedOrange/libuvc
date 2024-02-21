@@ -1225,7 +1225,17 @@ uvc_error_t uvc_stream_start(
     /* Index of the altsetting */
     int alt_idx, ep_idx;
 
+    // Note: configure bandwidth here.
     config_bytes_per_packet = strmh->cur_ctrl.dwMaxPayloadTransferSize;
+    const float bandwidth_factor = 0.25;
+    config_bytes_per_packet = (size_t)(strmh->cur_ctrl.dwMaxPayloadTransferSize * bandwidth_factor);
+    if (!config_bytes_per_packet || config_bytes_per_packet > strmh->cur_ctrl.dwMaxPayloadTransferSize) {
+      config_bytes_per_packet = strmh->cur_ctrl.dwMaxPayloadTransferSize;
+    }
+    if (!config_bytes_per_packet) {	// XXX added to prevent zero divided exception at the following code
+      ret = UVC_ERROR_IO;
+      goto fail;
+    }
 
     /* Go through the altsettings and find one whose packets are at least
      * as big as our format's maximum per-packet usage. Assume that the
