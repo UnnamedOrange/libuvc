@@ -1240,6 +1240,9 @@ uvc_error_t uvc_stream_start(
     /* Go through the altsettings and find one whose packets are at least
      * as big as our format's maximum per-packet usage. Assume that the
      * packet sizes are increasing. */
+    // XXX: The assumption might be wrong. Save the packet size.
+    struct libusb_interface_descriptor const* final_altsetting = NULL;
+    size_t minimal_endpoint_bytes_per_packet = 0;
     for (alt_idx = 0; alt_idx < interface->num_altsetting; alt_idx++) {
       altsetting = interface->altsetting + alt_idx;
       endpoint_bytes_per_packet = 0;
@@ -1268,7 +1271,13 @@ uvc_error_t uvc_stream_start(
         }
       }
 
-      if (endpoint_bytes_per_packet >= config_bytes_per_packet) {
+      // XXX
+      if (endpoint_bytes_per_packet >= config_bytes_per_packet &&
+          (!minimal_endpoint_bytes_per_packet || endpoint_bytes_per_packet < minimal_endpoint_bytes_per_packet)) {
+        // XXX
+        minimal_endpoint_bytes_per_packet = endpoint_bytes_per_packet;
+        final_altsetting = altsetting;
+
         /* Transfers will be at most one frame long: Divide the maximum frame size
          * by the size of the endpoint and round up */
         packets_per_transfer = (ctrl->dwMaxVideoFrameSize +
@@ -1279,20 +1288,22 @@ uvc_error_t uvc_stream_start(
           packets_per_transfer = 32;
 
         total_transfer_size = packets_per_transfer * endpoint_bytes_per_packet;
-        break;
+        // XXX: No break.
       }
     }
 
     /* If we searched through all the altsettings and found nothing usable */
-    if (alt_idx == interface->num_altsetting) {
+    // XXX
+    if (!final_altsetting) {
       ret = UVC_ERROR_INVALID_MODE;
       goto fail;
     }
 
     /* Select the altsetting */
+    // XXX
     ret = libusb_set_interface_alt_setting(strmh->devh->usb_devh,
-                                           altsetting->bInterfaceNumber,
-                                           altsetting->bAlternateSetting);
+                                           final_altsetting->bInterfaceNumber,
+                                           final_altsetting->bAlternateSetting);
     if (ret != UVC_SUCCESS) {
       UVC_DEBUG("libusb_set_interface_alt_setting failed");
       goto fail;
@@ -1309,7 +1320,7 @@ uvc_error_t uvc_stream_start(
         strmh->transfer_bufs[transfer_id],
         total_transfer_size, packets_per_transfer, _uvc_stream_callback, (void*) strmh, 5000);
 
-      libusb_set_iso_packet_lengths(transfer, endpoint_bytes_per_packet);
+      libusb_set_iso_packet_lengths(transfer, minimal_endpoint_bytes_per_packet);
     }
   } else {
     for (transfer_id = 0; transfer_id < LIBUVC_NUM_TRANSFER_BUFS;
