@@ -40,6 +40,8 @@
 #include "libuvc/libuvc_internal.h"
 #include "errno.h"
 
+#include <unistd.h> // XXX: usleep
+
 #ifdef _MSC_VER
 
 #define DELTA_EPOCH_IN_MICROSECS  116444736000000000Ui64
@@ -948,9 +950,17 @@ void LIBUSB_CALL _uvc_stream_callback(struct libusb_transfer *transfer) {
 
   if ( resubmit ) {
     if ( strmh->running ) {
-      int libusbRet = libusb_submit_transfer(transfer);
-      if (libusbRet < 0)
-      {
+      int success = 0;
+      for (int i = 0; i < 10; i++) {
+        // XXX: Forcefully apply interval.
+        usleep(8000);
+        int libusbRet = libusb_submit_transfer(transfer);
+        if (libusbRet == 0) {
+          success = 1;
+          break;
+        }
+      }
+      if (!success) {
         int i;
         pthread_mutex_lock(&strmh->cb_mutex);
 
@@ -1284,8 +1294,9 @@ uvc_error_t uvc_stream_start(
                                 endpoint_bytes_per_packet - 1) / endpoint_bytes_per_packet;
 
         /* But keep a reasonable limit: Otherwise we start dropping data */
-        if (packets_per_transfer > 32)
-          packets_per_transfer = 32;
+        // XXX: Smaller value takes less bandwidth.
+        if (packets_per_transfer > 8)
+          packets_per_transfer = 8;
 
         total_transfer_size = packets_per_transfer * endpoint_bytes_per_packet;
         // XXX: No break.
