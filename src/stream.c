@@ -1337,16 +1337,6 @@ uvc_error_t uvc_stream_start(
     }
   }
 
-  strmh->user_cb = cb;
-  strmh->user_ptr = user_ptr;
-
-  /* If the user wants it, set up a thread that calls the user's function
-   * with the contents of each frame.
-   */
-  if (cb) {
-    pthread_create(&strmh->cb_thread, NULL, _uvc_user_caller, (void*) strmh);
-  }
-
   for (transfer_id = 0; transfer_id < LIBUVC_NUM_TRANSFER_BUFS;
       transfer_id++) {
     ret = libusb_submit_transfer(strmh->transfers[transfer_id]);
@@ -1362,7 +1352,18 @@ uvc_error_t uvc_stream_start(
       libusb_free_transfer ( strmh->transfers[transfer_id]);
       strmh->transfers[transfer_id] = 0;
     }
-    ret = UVC_SUCCESS;
+    ret = UVC_ERROR_IO;
+    goto fail;
+  }
+
+  strmh->user_cb = cb;
+  strmh->user_ptr = user_ptr;
+
+  /* If the user wants it, set up a thread that calls the user's function
+  * with the contents of each frame.
+  */
+  if (cb) {
+      pthread_create(&strmh->cb_thread, NULL, _uvc_user_caller, (void*) strmh);
   }
 
   UVC_EXIT(ret);
